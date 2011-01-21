@@ -10,6 +10,7 @@ module Mongoid::Denormalize
     cattr_accessor :denormalize_definitions
     
     before_save :denormalize_from
+    before_save :store_changes_for_denormalize
     after_save :denormalize_to
   end
 
@@ -48,6 +49,10 @@ module Mongoid::Denormalize
   end
 
   private
+    def store_changes_for_denormalize
+      @changes_for_denormalize = changes.dup
+    end
+
     def denormalize_from
       self.denormalize_definitions.each do |definition|
         next if definition[:options][:to]
@@ -60,6 +65,8 @@ module Mongoid::Denormalize
       self.denormalize_definitions.each do |definition|
         next unless definition[:options][:to]
         
+        next unless definition[:fields].any? { |f| @changes_for_denormalize.keys.include?(f.to_s) }
+
         assigns = Hash[*definition[:fields].collect { |name| ["#{self.class.name.underscore}_#{name}", self.send(name)] }.flatten]
         
         [definition[:options][:to]].flatten.each do |association|
